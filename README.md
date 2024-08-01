@@ -3,15 +3,6 @@
 
 ## Documentation
 
-Current k8s version for CKA, CKAD, and CKS exam: 1.27
-
-Refer to this link for documentation: https://devopscube.com/kubernetes-cluster-vagrant/
-
-## 🚀 CKA, CKAD, CKS or KCNA Coupon Codes
-
-🚀  CKA, CKAD, CKS, or KCNA exam aspirants can **save $100** today using code **JULY23100** at https://kube.promo/devops. It is a limited-time offer from Linux Foundation
-
-For the best savings, opt for the CKA + CKS bundle (**$210 Savings)**. Use code **DCUBE20** at https://kube.promo/bundle
 
 ## Prerequisites
 
@@ -102,5 +93,5 @@ vagrant up
 vagrant destroy -f
 ```
 
-# vagrant-kubeadm-kubernetes
-# vagrant-kubeadm-kubernetes
+# vagrant-k8s
+# vagrant-k8s
