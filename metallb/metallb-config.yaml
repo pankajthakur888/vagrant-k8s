@@ -1,0 +1,34 @@
+# MetalLB IP Address Pool Configuration
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-address-pool
+  namespace: metallb-system
+spec:
+  # Define the range of IP addresses to be used by MetalLB
+  addresses:
+    - 192.168.56.100-192.168.56.200
+
+---
+# MetalLB Layer 2 Advertisement Configuration
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+
+---
+# MetalLB ConfigMap for Address Pools
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+      - name: default
+        protocol: layer2
+        # Restrict the IP range to a subset for this pool
+        addresses:
+          - 192.168.56.100-192.168.56.110
