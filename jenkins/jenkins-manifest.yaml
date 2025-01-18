@@ -1,0 +1,192 @@
+# Namespace definition
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins
+  labels:
+    app: jenkins
+
+# PersistentVolume definition
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jenkins-pv
+  labels:
+    app: jenkins
+spec:
+  capacity:
+    storage: 12Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/jenkins
+  storageClassName: manual
+
+# PersistentVolumeClaim definition
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-pvc
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 12Gi
+  storageClassName: manual
+
+# ServiceAccount definition
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-master
+  namespace: jenkins
+
+# Role for Jenkins
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-master
+  namespace: jenkins
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec", "pods/log", "events", "secrets", "configmaps"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+
+# RoleBinding for Jenkins
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-master
+  namespace: jenkins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-master
+subjects:
+- kind: ServiceAccount
+  name: jenkins-master
+  namespace: jenkins
+
+# Jenkins Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-master
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins-master
+  template:
+    metadata:
+      labels:
+        app: jenkins-master
+    spec:
+      serviceAccountName: jenkins-master
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+      - name: init-jenkins-home
+        image: busybox
+        command: ["sh", "-c", "chown -R 1000:1000 /var/jenkins_home"]
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins:lts
+        securityContext:
+          runAsUser: 1000
+        env:
+        - name: JAVA_OPTS
+          value: "-Djenkins.install.runSetupWizard=false"
+        - name: JENKINS_OPTS
+          value: "--httpPort=8080"
+        - name: http_proxy
+          value: "http://<proxy-host>:<proxy-port>"
+        - name: https_proxy
+          value: "http://<proxy-host>:<proxy-port>"
+        - name: no_proxy
+          value: "localhost,127.0.0.1,.svc.cluster.local"
+        ports:
+        - name: http-port
+          containerPort: 8080
+        - name: jnlp-port
+          containerPort: 50000
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+      volumes:
+      - name: jenkins-home
+        persistentVolumeClaim:
+          claimName: jenkins-pvc
+
+# NodePort Service for Jenkins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-master-nodeport
+  namespace: jenkins
+spec:
+  type: NodePort
+  selector:
+    app: jenkins-master
+  ports:
+  - name: jenkins-http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+    nodePort: 30080
+  - name: jenkins-jnlp
+    protocol: TCP
+    port: 50000
+    targetPort: 50000
+    nodePort: 30050
+
+# ClusterIP Service for internal access
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-master-clusterip
+  namespace: jenkins
+spec:
+  type: ClusterIP
+  selector:
+    app: jenkins-master
+  ports:
+  - name: jenkins-http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  - name: jenkins-jnlp
+    protocol: TCP
+    port: 50000
+    targetPort: 50000
